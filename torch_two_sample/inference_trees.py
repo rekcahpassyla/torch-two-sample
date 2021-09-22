@@ -36,7 +36,8 @@ class TreeMarginals(object):
         self.n_vertices = n_vertices
 
         self.triu_mask = torch.triu(
-            torch.ones(n_vertices, n_vertices), 1).byte()
+            # Later versions of PyTorch require a boolean
+            torch.ones(n_vertices, n_vertices), 1).bool()
         if cuda:
             self.triu_mask = self.triu_mask.cuda()
 
@@ -118,7 +119,8 @@ class TreeMarginals(object):
 
         A = Variable(self.A, requires_grad=False)
         P = (1. / torch.diag(L)).view(1, -1)  # The diagonal pre-conditioner.
-        Z, _ = torch.gesv(A, L * P.expand_as(L))
+        # torch.gesv does not exist in later versions
+        Z = torch.linalg.solve(L * P.expand_as(L), A)
         Z = Z * P.t().expand_as(Z)
         # relu for numerical stability, the inside term should never be zero.
         return relu(torch.sum(Z * A, 0)) * torch.exp(d)

@@ -35,11 +35,13 @@ class SmoothFRStatistic(object):
         # of the marginals of all edges incident to i, which we need in the
         # formula for the variance.
         if cuda:
-            self.idx_within = torch.cuda.ByteTensor((n * (n - 1)) // 2)
+            # Later versions of PyTorch no longer use ByteTensors for this
+            self.idx_within = torch.cuda.BoolTensor((n * (n - 1)) // 2)
             if compute_t_stat:
                 self.nbs = torch.cuda.FloatTensor(n, self.idx_within.size()[0])
         else:
-            self.idx_within = torch.ByteTensor((n * (n - 1)) // 2)
+            # Later versions of PyTorch no longer use ByteTensors for this
+            self.idx_within = torch.BoolTensor((n * (n - 1)) // 2)
             if compute_t_stat:
                 self.nbs = torch.FloatTensor(n, self.idx_within.size()[0])
         self.idx_within.zero_()
@@ -173,7 +175,8 @@ class SmoothKNNStatistic(object):
         self.count_potential = torch.FloatTensor(1, k + 1)
         self.count_potential.fill_(NINF)
         self.count_potential[0, -1] = 0
-        self.indices_cpu = (1 - torch.eye(n_1 + n_2)).byte()
+        # Later versions of PyTorch require a boolean tensor
+        self.indices_cpu = (1 - torch.eye(n_1 + n_2)).bool()
         self.k = k
         self.n_1 = n_1
         self.n_2 = n_2
@@ -264,9 +267,13 @@ class SmoothKNNStatistic(object):
         margs.zero_()
         margs = Variable(margs, requires_grad=False)
         if margs_.is_cuda:
-            margs.masked_scatter_(indices, margs_.view(-1))
+            # Later versions of PyTorch require this format
+            # so as not to clobber gradients
+            margs.masked_scatter_(indices, margs_.detach().view(-1))
         else:
-            margs.masked_scatter_(indices_cpu, margs_.view(-1))
+            # Later versions of PyTorch require this format
+            # so as not to clobber gradients
+            margs.masked_scatter_(indices_cpu, margs_.detach().view(-1))
 
         t_stat = margs[:n_1, n_1:].sum() + margs[n_1:, :n_1].sum()
         if self.compute_t_stat:
